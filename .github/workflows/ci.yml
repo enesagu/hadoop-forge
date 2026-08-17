@@ -25,7 +25,7 @@ jobs:
     name: Validate configuration
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install xmllint
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libxml2-utils
@@ -52,7 +52,7 @@ jobs:
     name: ShellCheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install ShellCheck
         run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
@@ -76,7 +76,7 @@ jobs:
     name: Dockerfile lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: docker/Dockerfile
@@ -89,7 +89,7 @@ jobs:
     name: Internal links
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check relative links
         # A local script rather than a third-party action: the previous one was
         # rate-limited out of downloading (HTTP 429) and failed the build over
@@ -104,7 +104,7 @@ jobs:
     name: WordCount example
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-java@v4
         with:
@@ -140,7 +140,7 @@ jobs:
           - topology: cluster
             file: docker/docker-compose.yml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v3
 
