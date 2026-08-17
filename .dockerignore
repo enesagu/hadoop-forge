@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+.vscode
+docs
+examples/*/target
+monitoring
+*.md
+!docker/**/*.md
+data
+logs
+hadoop-*.tar.gz

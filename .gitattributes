@@ -1,0 +1,14 @@
+# Normalise line endings so shell scripts stay executable inside Linux
+# containers even when the repository is cloned on Windows.
+* text=auto eol=lf
+
+*.sh      text eol=lf
+*.bash    text eol=lf
+Dockerfile text eol=lf
+Makefile  text eol=lf
+
+*.png     binary
+*.jpg     binary
+*.gif     binary
+*.jar     binary
+*.tar.gz  binary

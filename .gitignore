@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# Authoring material that is intentionally kept out of the repository
+# ---------------------------------------------------------------------------
+hadoop-derinlemesine-rehber.md
+
+# ---------------------------------------------------------------------------
+# Hadoop runtime artifacts
+# ---------------------------------------------------------------------------
+# Extracted distributions and local data directories must never be committed.
+hadoop-*.tar.gz
+hadoop-*.tar.gz.sha512
+hadoop-3.*/
+/data/
+logs/
+*.log
+
+# NameNode / DataNode state produced by `hdfs namenode -format` and friends.
+dfs/
+namenode/
+datanode/
+journalnode/
+tmp/
+
+# ---------------------------------------------------------------------------
+# Java / Maven
+# ---------------------------------------------------------------------------
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+dependency-reduced-pom.xml
+.mvn/timing.properties
+
+# ---------------------------------------------------------------------------
+# Docker
+# ---------------------------------------------------------------------------
+.env
+docker-compose.override.yml
+
+# ---------------------------------------------------------------------------
+# Editors and operating systems
+# ---------------------------------------------------------------------------
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
