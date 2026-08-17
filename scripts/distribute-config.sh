@@ -11,6 +11,7 @@
 # gated on review — hand-run rsync is how two nodes end up with a different
 # dfs.replication than the rest and nobody notices for a month.
 
+# shellcheck source=scripts/lib/common.sh
 source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
 require_cmd rsync ssh

@@ -6,6 +6,7 @@
 #
 # Idempotent: apt install on an already-installed package is a no-op.
 
+# shellcheck source=scripts/lib/common.sh
 source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
 require_linux

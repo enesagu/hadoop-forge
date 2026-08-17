@@ -1,0 +1,49 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: dropdown
+    id: topology
+    attributes:
+      label: Topology
+      options:
+        - Docker multi-node (make up)
+        - Docker single-node (make single)
+        - Bare metal pseudo-distributed
+        - Bare metal multi-node
+        - HA
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, what you got.
+    validations:
+      required: true
+
+  - type: textarea
+    id: health
+    attributes:
+      label: Health check output
+      description: Output of `./scripts/health-check.sh` (or `make health`).
+      render: shell
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: >-
+        The daemon log from $HADOOP_LOG_DIR, not just the client error — the
+        client message is usually several layers removed from the cause. For a
+        failed job, `yarn logs -applicationId <id>`.
+      render: shell
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: "Hadoop 3.3.6, Docker 27.0, Ubuntu 22.04"
+    validations:
+      required: true

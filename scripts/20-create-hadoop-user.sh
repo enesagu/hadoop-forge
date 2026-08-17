@@ -8,6 +8,7 @@
 # inherits the daemon's identity, so a root NameNode means arbitrary user code
 # executing as root on every node in the cluster.
 
+# shellcheck source=scripts/lib/common.sh
 source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
 require_linux

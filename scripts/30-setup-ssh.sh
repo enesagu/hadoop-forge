@@ -8,6 +8,7 @@
 # daemons — they literally SSH to each host in the `workers` file and run a
 # command. No passwordless SSH, no cluster.
 
+# shellcheck source=scripts/lib/common.sh
 source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
 refuse_root

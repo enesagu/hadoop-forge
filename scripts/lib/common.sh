@@ -5,6 +5,10 @@
 #
 # Sourced, never executed:
 #   source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+#
+# shellcheck disable=SC2034
+# ^ Several values defined here are consumed only by the scripts that source
+#   this file, which shellcheck cannot see from inside a library.
 
 # Guard against double-sourcing when scripts chain into each other.
 [[ -n "${_FORGE_COMMON_SOURCED:-}" ]] && return 0

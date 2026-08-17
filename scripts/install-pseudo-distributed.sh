@@ -8,6 +8,7 @@
 # must not run as root. Each step is idempotent, so re-running after fixing a
 # problem resumes rather than restarts.
 
+# shellcheck source=scripts/lib/common.sh
 source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
 require_linux

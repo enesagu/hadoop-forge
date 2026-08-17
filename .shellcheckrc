@@ -1,0 +1,7 @@
+# Follow `source` directives so helpers from scripts/lib/common.sh are known.
+external-sources=true
+
+# SC1091: not-followed source. Applies to files that only exist on the target
+# host — /etc/os-release, the Hadoop distribution's own scripts — which are not
+# in this repository and never will be.
+disable=SC1091

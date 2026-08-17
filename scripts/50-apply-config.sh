@@ -8,6 +8,7 @@
 # cluster core-site.xml produces a cluster that half-works, which is worse than
 # one that does not start.
 
+# shellcheck source=scripts/lib/common.sh
 source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
 require_linux

@@ -8,6 +8,7 @@
 # Stops in reverse dependency order — YARN first, then HDFS — so running
 # applications are not killed by the filesystem vanishing underneath them.
 
+# shellcheck source=scripts/lib/common.sh
 source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
 refuse_root

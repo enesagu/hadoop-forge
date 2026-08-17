@@ -9,6 +9,7 @@
 # cluster is effectively deleting it. This script therefore refuses to format
 # over existing metadata unless FORGE_FORCE_FORMAT=1 is set explicitly.
 
+# shellcheck source=scripts/lib/common.sh
 source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
 refuse_root

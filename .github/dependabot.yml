@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Maven dependencies for the WordCount example. hadoop-client is 'provided'
+  # and must stay pinned to the cluster's version, so major bumps are ignored.
+  - package-ecosystem: maven
+    directory: /examples/wordcount
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: org.apache.hadoop:hadoop-client
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: monthly

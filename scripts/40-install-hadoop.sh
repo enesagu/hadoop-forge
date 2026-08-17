@@ -8,6 +8,7 @@
 # scripts as a privileged service account on every node in a cluster; verify the
 # bytes came from Apache.
 
+# shellcheck source=scripts/lib/common.sh
 source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
 require_linux
@@ -95,14 +96,16 @@ profile="/home/${HADOOP_USER}/.bashrc"
 java_home="$(detect_java_home)" || die "Could not resolve JAVA_HOME"
 
 # A single marked block, rewritten wholesale, so re-running never appends a
-# second copy of the exports.
-python3 - "$profile" <<'PY' 2>/dev/null || true
-import sys, re, pathlib
-p = pathlib.Path(sys.argv[1])
-text = p.read_text() if p.exists() else ""
-text = re.sub(r"\n?# >>> hadoop-forge >>>.*?# <<< hadoop-forge <<<\n?", "\n", text, flags=re.S)
-p.write_text(text)
-PY
+# second copy of the exports. awk rather than python: this runs on a freshly
+# provisioned host where the only guaranteed interpreter is the shell's own
+# toolchain.
+if [[ -f "$profile" ]]; then
+  awk '
+    /^# >>> hadoop-forge >>>$/ { skipping = 1; next }
+    /^# <<< hadoop-forge <<<$/ { skipping = 0; next }
+    !skipping
+  ' "$profile" > "${profile}.tmp" && mv "${profile}.tmp" "$profile"
+fi
 
 cat >> "$profile" <<EOF
 # >>> hadoop-forge >>>
