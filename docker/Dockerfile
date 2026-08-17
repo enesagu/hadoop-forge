@@ -9,7 +9,7 @@
 # Done in a throwaway stage so neither the 700 MB tarball nor curl ends up in
 # the runtime image's layers.
 # --------------------------------------------------------------------------
-FROM eclipse-temurin:11-jdk-jammy AS fetch
+FROM eclipse-temurin:25-jdk-jammy AS fetch
 
 ARG HADOOP_VERSION=3.3.6
 ARG HADOOP_MIRROR=https://downloads.apache.org/hadoop/common
@@ -41,7 +41,7 @@ RUN set -eux; \
 # --------------------------------------------------------------------------
 # Stage 2: runtime
 # --------------------------------------------------------------------------
-FROM eclipse-temurin:11-jdk-jammy
+FROM eclipse-temurin:25-jdk-jammy
 
 ARG HADOOP_VERSION=3.3.6
 
