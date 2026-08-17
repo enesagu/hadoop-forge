@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  High-availability hdfs-site.xml
+
+  Topology:
+    nn1, nn2         NameNodes (one Active, one Standby) + a ZKFC each
+    jn1, jn2, jn3    JournalNode quorum holding the shared EditLog
+    zk1, zk2, zk3    ZooKeeper ensemble for leader election
+    worker1..N       DataNodes
+
+  There is no Secondary NameNode in this topology. The Standby performs
+  checkpointing, which is the Secondary's only job.
+-->
+<configuration>
+
+  <!-- ================= Nameservice ================= -->
+  <property>
+    <name>dfs.nameservices</name>
+    <value>forge-ns</value>
+  </property>
+
+  <!-- Hadoop 3 allows more than two; two is the common case. -->
+  <property>
+    <name>dfs.ha.namenodes.forge-ns</name>
+    <value>nn1,nn2</value>
+  </property>
+
+  <!-- ================= Per-NameNode addresses ================= -->
+  <property>
+    <name>dfs.namenode.rpc-address.forge-ns.nn1</name>
+    <value>nn1:8020</value>
+  </property>
+  <property>
+    <name>dfs.namenode.rpc-address.forge-ns.nn2</name>
+    <value>nn2:8020</value>
+  </property>
+  <property>
+    <name>dfs.namenode.http-address.forge-ns.nn1</name>
+    <value>nn1:9870</value>
+  </property>
+  <property>
+    <name>dfs.namenode.http-address.forge-ns.nn2</name>
+    <value>nn2:9870</value>
+  </property>
+
+  <!-- Separate RPC port for DataNode traffic, so a flood of client calls cannot
+       starve the heartbeats the NameNode uses to decide who is alive. -->
+  <property>
+    <name>dfs.namenode.servicerpc-address.forge-ns.nn1</name>
+    <value>nn1:8021</value>
+  </property>
+  <property>
+    <name>dfs.namenode.servicerpc-address.forge-ns.nn2</name>
+    <value>nn2:8021</value>
+  </property>
+
+  <!-- ================= Shared edit log ================= -->
+  <!--
+    The Active NameNode writes every EditLog transaction to a QUORUM of
+    JournalNodes and only acknowledges the client once a majority has persisted
+    it. The Standby tails the same journal to stay current.
+
+    A shared NFS mount can serve this role but reintroduces a single point of
+    failure — the thing HA exists to remove.
+  -->
+  <property>
+    <name>dfs.namenode.shared.edits.dir</name>
+    <value>qjournal://jn1:8485;jn2:8485;jn3:8485/forge-ns</value>
+  </property>
+  <property>
+    <name>dfs.journalnode.edits.dir</name>
+    <value>/data/hdfs/journalnode</value>
+  </property>
+
+  <!-- ================= Client-side failover ================= -->
+  <!--
+    How a client turns 'forge-ns' into a live NameNode: try the configured ones
+    and use whichever answers as Active. This is why fs.defaultFS must be the
+    nameservice — the client, not a load balancer, performs the failover.
+  -->
+  <property>
+    <name>dfs.client.failover.proxy.provider.forge-ns</name>
+    <value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value>
+  </property>
+
+  <!-- ================= Automatic failover ================= -->
+  <property>
+    <name>dfs.ha.automatic-failover.enabled</name>
+    <value>true</value>
+  </property>
+
+  <!--
+    FENCING — the part people skip and then regret.
+
+    A NameNode that stops responding is not necessarily dead. It may be in a long
+    GC pause, or partitioned from ZooKeeper while still reachable by DataNodes.
+    Promoting the Standby without fencing the old Active gives you two nodes that
+    both believe they are Active: split brain, and a corrupted namespace.
+
+    sshfence connects to the old Active and kills the process holding the
+    NameNode port. The JournalNode quorum provides a second, independent layer —
+    it refuses writes from a NameNode with a stale epoch number — but relying on
+    that alone leaves the old Active serving stale reads to clients.
+
+    shell(/bin/true) as a fallback means "if sshfence could not run, proceed
+    anyway". Keep it only because the quorum's epoch check backs it up; in a
+    Kerberised or network-partitioned environment prefer a real STONITH-style
+    power fence.
+  -->
+  <property>
+    <name>dfs.ha.fencing.methods</name>
+    <value>sshfence
+shell(/bin/true)</value>
+  </property>
+  <property>
+    <name>dfs.ha.fencing.ssh.private-key-files</name>
+    <value>/home/hadoop/.ssh/id_ed25519</value>
+  </property>
+  <property>
+    <name>dfs.ha.fencing.ssh.connect-timeout</name>
+    <value>30000</value>
+  </property>
+
+  <!-- ================= Storage ================= -->
+  <property>
+    <name>dfs.replication</name>
+    <value>3</value>
+  </property>
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///data/hdfs/namenode,file:///data2/hdfs/namenode</value>
+  </property>
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///data/hdfs/datanode,file:///data2/hdfs/datanode</value>
+  </property>
+  <property>
+    <name>dfs.blocksize</name>
+    <value>134217728</value>
+  </property>
+  <property>
+    <name>dfs.permissions.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>dfs.namenode.handler.count</name>
+    <value>32</value>
+  </property>
+  <property>
+    <name>dfs.datanode.du.reserved</name>
+    <value>10737418240</value>
+  </property>
+  <property>
+    <name>dfs.datanode.failed.volumes.tolerated</name>
+    <value>1</value>
+  </property>
+
+  <!-- The Standby checkpoints on this cadence; there is no Secondary NameNode. -->
+  <property>
+    <name>dfs.namenode.checkpoint.period</name>
+    <value>1800</value>
+  </property>
+  <property>
+    <name>dfs.namenode.checkpoint.txns</name>
+    <value>500000</value>
+  </property>
+
+  <property>
+    <name>dfs.hosts</name>
+    <value>/opt/hadoop/etc/hadoop/dfs.include</value>
+  </property>
+  <property>
+    <name>dfs.hosts.exclude</name>
+    <value>/opt/hadoop/etc/hadoop/dfs.exclude</value>
+  </property>
+
+</configuration>

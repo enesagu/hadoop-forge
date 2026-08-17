@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  High-availability core-site.xml
+
+  Overlay on the 'cluster' set: scripts/50-apply-config.sh installs cluster/
+  first, then these files on top, so the YARN and MapReduce sizing is inherited.
+-->
+<configuration>
+
+  <!--
+    The nameservice ID, NOT a hostname. This is the whole point of HA from a
+    client's perspective: clients address the service, and the client-side
+    failover provider resolves it to whichever NameNode is currently Active.
+    Hard-coding a NameNode host here would defeat failover entirely.
+  -->
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://forge-ns</value>
+  </property>
+
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/data/hdfs/tmp</value>
+  </property>
+
+  <!--
+    ZooKeeper quorum. Used by the ZKFailoverController for leader election and by
+    the ResourceManager for its state store.
+
+    An odd number, always: a quorum of N tolerates (N-1)/2 failures, so 3
+    tolerates one and 4 also tolerates only one while costing more. Spread the
+    ensemble across racks or the rack failure you were protecting against takes
+    the quorum with it.
+  -->
+  <property>
+    <name>ha.zookeeper.quorum</name>
+    <value>zk1:2181,zk2:2181,zk3:2181</value>
+  </property>
+
+  <!--
+    How long a ZKFC may lose its ZooKeeper session before failover is triggered.
+    Too short and a GC pause on the Active NameNode causes a needless failover;
+    too long and a genuine outage lasts longer than it must.
+  -->
+  <property>
+    <name>ha.zookeeper.session-timeout.ms</name>
+    <value>10000</value>
+  </property>
+
+  <property>
+    <name>io.file.buffer.size</name>
+    <value>65536</value>
+  </property>
+
+  <property>
+    <name>hadoop.security.authentication</name>
+    <value>simple</value>
+  </property>
+
+  <property>
+    <name>hadoop.security.authorization</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>fs.trash.interval</name>
+    <value>1440</value>
+  </property>
+
+  <property>
+    <name>net.topology.script.file.name</name>
+    <value>/opt/hadoop/etc/hadoop/rack-topology.sh</value>
+  </property>
+
+</configuration>
