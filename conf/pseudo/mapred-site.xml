@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Pseudo-distributed mapred-site.xml
+-->
+<configuration>
+
+  <!-- Run MapReduce as a YARN application. The historical 'local' and 'classic'
+       modes exist only for debugging and Hadoop 1.x compatibility. -->
+  <property>
+    <name>mapreduce.framework.name</name>
+    <value>yarn</value>
+  </property>
+
+  <!-- Without these three, containers start with an incomplete classpath and
+       every job dies with ClassNotFoundException on MRAppMaster. -->
+  <property>
+    <name>mapreduce.application.classpath</name>
+    <value>$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/*:$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/lib/*</value>
+  </property>
+  <property>
+    <name>yarn.app.mapreduce.am.env</name>
+    <value>HADOOP_MAPRED_HOME=/opt/hadoop</value>
+  </property>
+  <property>
+    <name>mapreduce.admin.user.env</name>
+    <value>HADOOP_MAPRED_HOME=/opt/hadoop</value>
+  </property>
+
+  <!-- Container sizes. Must stay at or below
+       yarn.scheduler.maximum-allocation-mb or the RM rejects the request
+       outright and the job hangs in ACCEPTED forever. -->
+  <property>
+    <name>mapreduce.map.memory.mb</name>
+    <value>1024</value>
+  </property>
+  <property>
+    <name>mapreduce.reduce.memory.mb</name>
+    <value>1024</value>
+  </property>
+
+  <!-- JVM heap inside those containers: ~80% of the container, leaving room for
+       thread stacks, metaspace and off-heap buffers. Exceed the container and
+       the NodeManager kills the task with "Container killed on request". -->
+  <property>
+    <name>mapreduce.map.java.opts</name>
+    <value>-Xmx820m</value>
+  </property>
+  <property>
+    <name>mapreduce.reduce.java.opts</name>
+    <value>-Xmx820m</value>
+  </property>
+
+  <!-- Sort buffer for map output. Bigger buffer, fewer spills to disk. -->
+  <property>
+    <name>mapreduce.task.io.sort.mb</name>
+    <value>256</value>
+  </property>
+
+  <!-- Snappy on the shuffle: cheap CPU, large reduction in disk I/O and network
+       traffic. Almost always a net win. -->
+  <property>
+    <name>mapreduce.map.output.compress</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>mapreduce.map.output.compress.codec</name>
+    <value>org.apache.hadoop.io.compress.SnappyCodec</value>
+  </property>
+
+  <!-- JobHistory server: without it, finished jobs vanish from the RM UI and
+       `mapred job -history` has nothing to read. -->
+  <property>
+    <name>mapreduce.jobhistory.address</name>
+    <value>localhost:10020</value>
+  </property>
+  <property>
+    <name>mapreduce.jobhistory.webapp.address</name>
+    <value>localhost:19888</value>
+  </property>
+
+</configuration>

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Capacity Scheduler queues.
+
+  Three tenants share the cluster. Each has a guaranteed floor (capacity) and a
+  ceiling it may grow to when others are idle (maximum-capacity). Capacities
+  under a parent must sum to exactly 100 or the ResourceManager refuses to start.
+-->
+<configuration>
+
+  <property>
+    <name>yarn.scheduler.capacity.root.queues</name>
+    <value>etl,adhoc,ml</value>
+  </property>
+
+  <!-- ETL: scheduled production pipelines. Largest guarantee, and allowed to
+       consume the whole cluster overnight when nothing else is running. -->
+  <property>
+    <name>yarn.scheduler.capacity.root.etl.capacity</name>
+    <value>40</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.etl.maximum-capacity</name>
+    <value>100</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.etl.user-limit-factor</name>
+    <value>2</value>
+  </property>
+
+  <!-- Ad-hoc analyst queries. Capped below 100% so an exploratory query cannot
+       monopolise the cluster, and capped per application so one runaway
+       notebook cannot either. -->
+  <property>
+    <name>yarn.scheduler.capacity.root.adhoc.capacity</name>
+    <value>30</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.adhoc.maximum-capacity</name>
+    <value>60</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.adhoc.maximum-am-resource-percent</name>
+    <value>0.2</value>
+  </property>
+
+  <!-- Model training: long-running, resource-hungry, lowest urgency. -->
+  <property>
+    <name>yarn.scheduler.capacity.root.ml.capacity</name>
+    <value>30</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.ml.maximum-capacity</name>
+    <value>70</value>
+  </property>
+
+  <!-- Cap the share of the cluster that ApplicationMasters may hold. Without
+       this, enough concurrent submissions fill the cluster with AMs that are all
+       waiting for task containers that can never be allocated — a deadlock that
+       looks like every job stuck in ACCEPTED. -->
+  <property>
+    <name>yarn.scheduler.capacity.maximum-am-resource-percent</name>
+    <value>0.3</value>
+  </property>
+
+  <property>
+    <name>yarn.scheduler.capacity.node-locality-delay</name>
+    <value>40</value>
+  </property>
+
+</configuration>

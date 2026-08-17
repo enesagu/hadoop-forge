@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Pseudo-distributed yarn-site.xml
+  Sized for a development machine with roughly 8 GB of RAM.
+-->
+<configuration>
+
+  <!-- The MapReduce shuffle is served by the NodeManager as an auxiliary
+       service. Omit this and every MapReduce job fails during shuffle. -->
+  <property>
+    <name>yarn.nodemanager.aux-services</name>
+    <value>mapreduce_shuffle</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.hostname</name>
+    <value>localhost</value>
+  </property>
+
+  <!-- Memory this node donates to YARN. NOT the machine's total RAM: the OS,
+       the DataNode JVM and the NameNode JVM all need their share. 75-80% of
+       physical RAM is the usual starting point. -->
+  <property>
+    <name>yarn.nodemanager.resource.memory-mb</name>
+    <value>4096</value>
+  </property>
+  <property>
+    <name>yarn.nodemanager.resource.cpu-vcores</name>
+    <value>4</value>
+  </property>
+
+  <!-- Container size bounds. A very small minimum produces a swarm of tiny
+       containers whose JVM startup cost dominates the actual work. -->
+  <property>
+    <name>yarn.scheduler.minimum-allocation-mb</name>
+    <value>512</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.maximum-allocation-mb</name>
+    <value>4096</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.maximum-allocation-vcores</name>
+    <value>4</value>
+  </property>
+
+  <!-- Virtual memory accounting is notoriously unreliable with modern JVMs and
+       glibc arenas; leaving it on produces spurious container kills on
+       development machines. Physical memory limits still apply. -->
+  <property>
+    <name>yarn.nodemanager.vmem-check-enabled</name>
+    <value>false</value>
+  </property>
+
+  <!-- Collect container logs into HDFS on completion so that
+       `yarn logs -applicationId <id>` works instead of you SSH-ing to nodes. -->
+  <property>
+    <name>yarn.log-aggregation-enable</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>yarn.log-aggregation.retain-seconds</name>
+    <value>604800</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.env-whitelist</name>
+    <value>JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_MAPRED_HOME</value>
+  </property>
+
+</configuration>

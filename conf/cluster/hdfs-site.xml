@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Multi-node cluster hdfs-site.xml
+-->
+<configuration>
+
+  <!-- Three replicas: survives one node failure and one whole-rack failure
+       given rack-aware placement. -->
+  <property>
+    <name>dfs.replication</name>
+    <value>3</value>
+  </property>
+
+  <!-- TWO paths on two different physical disks. The NameNode writes both
+       synchronously, so a single disk failure does not cost you the namespace.
+       This is the cheapest insurance in the entire stack. -->
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///data/hdfs/namenode,file:///data2/hdfs/namenode</value>
+  </property>
+
+  <!-- One path per physical spindle (JBOD). Adjust to match the real disk
+       layout of your workers. -->
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///data/hdfs/datanode,file:///data2/hdfs/datanode</value>
+  </property>
+
+  <property>
+    <name>dfs.blocksize</name>
+    <value>134217728</value>
+  </property>
+
+  <!-- Permission checks ON. This is the production default and the pseudo set
+       is the exception, not the rule. -->
+  <property>
+    <name>dfs.permissions.enabled</name>
+    <value>true</value>
+  </property>
+
+  <!-- Client RPC handler threads on the NameNode. 10 is fine for a handful of
+       nodes; scale towards 100-200 beyond ~100 DataNodes or the NameNode
+       becomes the bottleneck under concurrent job submission. -->
+  <property>
+    <name>dfs.namenode.handler.count</name>
+    <value>32</value>
+  </property>
+
+  <!-- Threads each DataNode uses for block transfers. Too low and the
+       re-replication storm after a node loss crawls. -->
+  <property>
+    <name>dfs.datanode.handler.count</name>
+    <value>16</value>
+  </property>
+
+  <property>
+    <name>dfs.datanode.du.reserved</name>
+    <value>10737418240</value>
+  </property>
+
+  <!-- Tolerate one failed data volume per DataNode instead of shutting the
+       whole DataNode down when a single disk dies. -->
+  <property>
+    <name>dfs.datanode.failed.volumes.tolerated</name>
+    <value>1</value>
+  </property>
+
+  <!-- Only hosts listed here may join as DataNodes; decommissioning is done by
+       moving a host into the exclude file and running
+       `hdfs dfsadmin -refreshNodes`. -->
+  <property>
+    <name>dfs.hosts</name>
+    <value>/opt/hadoop/etc/hadoop/dfs.include</value>
+  </property>
+  <property>
+    <name>dfs.hosts.exclude</name>
+    <value>/opt/hadoop/etc/hadoop/dfs.exclude</value>
+  </property>
+
+  <!-- Checkpoint every 30 minutes or 500k transactions, whichever comes first.
+       Unbounded EditLog growth is what turns a NameNode restart into an outage. -->
+  <property>
+    <name>dfs.namenode.checkpoint.period</name>
+    <value>1800</value>
+  </property>
+  <property>
+    <name>dfs.namenode.checkpoint.txns</name>
+    <value>500000</value>
+  </property>
+
+  <property>
+    <name>dfs.namenode.http-address</name>
+    <value>master:9870</value>
+  </property>
+
+</configuration>

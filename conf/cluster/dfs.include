@@ -1,0 +1,8 @@
+# Hosts allowed to register as DataNodes.
+#
+# Referenced by dfs.hosts. An unlisted host is refused, which is what stops a
+# misconfigured or rogue machine from joining the cluster and receiving blocks.
+# After editing: hdfs dfsadmin -refreshNodes
+worker1
+worker2
+worker3

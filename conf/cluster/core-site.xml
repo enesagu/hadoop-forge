@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Multi-node cluster core-site.xml
+  Topology: master (NameNode + ResourceManager), worker1..worker3
+            (DataNode + NodeManager each).
+
+  Every host in the cluster must resolve these names identically — via /etc/hosts
+  or DNS. Half of all "cluster does not come up" reports are name resolution.
+-->
+<configuration>
+
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://master:9000</value>
+  </property>
+
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/data/hdfs/tmp</value>
+  </property>
+
+  <property>
+    <name>io.file.buffer.size</name>
+    <value>65536</value>
+  </property>
+
+  <!-- Still 'simple' here because Kerberos requires a KDC that this repository
+       does not provision. This is the single biggest gap between this cluster
+       and a production one — see docs/06-security.md. -->
+  <property>
+    <name>hadoop.security.authentication</name>
+    <value>simple</value>
+  </property>
+
+  <property>
+    <name>hadoop.security.authorization</name>
+    <value>true</value>
+  </property>
+
+  <!-- 24 hours of trash retention on a shared cluster. Somebody will eventually
+       delete the wrong directory. -->
+  <property>
+    <name>fs.trash.interval</name>
+    <value>1440</value>
+  </property>
+
+  <!-- Rack topology resolver. Without it every node reports /default-rack and
+       replica placement degrades to "any three nodes", losing rack-failure
+       tolerance. -->
+  <property>
+    <name>net.topology.script.file.name</name>
+    <value>/opt/hadoop/etc/hadoop/rack-topology.sh</value>
+  </property>
+
+</configuration>

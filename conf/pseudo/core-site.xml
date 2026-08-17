@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Pseudo-distributed core-site.xml
+  Every daemon runs on this machine, but each in its own JVM — the same code
+  paths as a real cluster, minus the network.
+-->
+<configuration>
+
+  <!-- The default filesystem URI. Every client resolves bare paths such as
+       /input against this. In HA mode this becomes a nameservice ID instead of
+       a host:port pair. -->
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://localhost:9000</value>
+  </property>
+
+  <!-- Root for many other derived paths. Deliberately NOT under /tmp, which
+       most distributions clear on reboot — losing it means losing NameNode
+       state on a machine that was only restarted. -->
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/data/hdfs/tmp</value>
+  </property>
+
+  <!-- 64 KB read/write buffer. The 4 KB default is a relic of much older
+       hardware and costs measurable throughput on sequential scans. -->
+  <property>
+    <name>io.file.buffer.size</name>
+    <value>65536</value>
+  </property>
+
+  <!-- LEARNING MODE. 'simple' means the client simply asserts its username and
+       is believed. Production requires 'kerberos'. -->
+  <property>
+    <name>hadoop.security.authentication</name>
+    <value>simple</value>
+  </property>
+
+  <!-- Trash gives you 60 minutes to undo an `hdfs dfs -rm`. There is no other
+       undo in HDFS. -->
+  <property>
+    <name>fs.trash.interval</name>
+    <value>60</value>
+  </property>
+
+</configuration>

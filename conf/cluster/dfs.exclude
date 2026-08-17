@@ -1,0 +1,9 @@
+# Hosts to decommission, one per line.
+#
+# Adding a host here and running `hdfs dfsadmin -refreshNodes` starts an ORDERLY
+# decommission: the NameNode re-replicates that node's blocks elsewhere first and
+# only then reports it as Decommissioned. Watch progress with
+# `hdfs dfsadmin -report` and never power the machine off before the state
+# actually flips — pulling it early turns a planned removal into data at risk.
+#
+# Empty during normal operation.

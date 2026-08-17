@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Pseudo-distributed hdfs-site.xml
+-->
+<configuration>
+
+  <!-- One node cannot hold three distinct replicas, so asking for 3 here would
+       leave every block permanently under-replicated and the NameNode web UI
+       permanently yellow. -->
+  <property>
+    <name>dfs.replication</name>
+    <value>1</value>
+  </property>
+
+  <!-- NameNode metadata: FsImage + EditLog. In production this is a
+       comma-separated list of paths on DIFFERENT physical disks; the NameNode
+       writes all of them synchronously so one bad disk is survivable. -->
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///data/hdfs/namenode</value>
+  </property>
+
+  <!-- DataNode block storage. In production: one path per physical disk (JBOD),
+       comma separated. Never RAID — HDFS already replicates across machines. -->
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///data/hdfs/datanode</value>
+  </property>
+
+  <!-- 128 MB. Large enough that seek time is negligible against transfer time,
+       small enough to keep NameNode heap sane. -->
+  <property>
+    <name>dfs.blocksize</name>
+    <value>134217728</value>
+  </property>
+
+  <!-- LEARNING MODE: skips POSIX-style permission checks so you are not fighting
+       ownership while exploring. Production: true. -->
+  <property>
+    <name>dfs.permissions.enabled</name>
+    <value>false</value>
+  </property>
+
+  <!-- Reserve 5 GB per volume for the operating system. A DataNode that fills
+       its root filesystem takes the whole machine down with it. -->
+  <property>
+    <name>dfs.datanode.du.reserved</name>
+    <value>5368709120</value>
+  </property>
+
+  <!-- Explicit UI bind so the address is predictable: http://localhost:9870 -->
+  <property>
+    <name>dfs.namenode.http-address</name>
+    <value>localhost:9870</value>
+  </property>
+
+</configuration>

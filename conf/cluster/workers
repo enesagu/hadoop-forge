@@ -1,0 +1,12 @@
+# Hosts that run DataNode and NodeManager.
+#
+# start-dfs.sh and start-yarn.sh read this file on the master and SSH to each
+# entry to launch daemons — which is why passwordless SSH from master to every
+# worker is a hard requirement, not a convenience.
+#
+# Named 'slaves' in Hadoop 2.x. Do not list the master here unless the master is
+# also meant to store blocks (not recommended: a NameNode competing with a
+# DataNode for page cache and disk is a bad trade).
+worker1
+worker2
+worker3
