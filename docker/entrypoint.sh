@@ -148,7 +148,11 @@ start_namenode() {
   # historyserver container means it happens exactly once.
   (
     wait_for_port localhost 9000 180
-    hdfs dfsadmin -safemode wait >/dev/null
+    # Bounded: an unbounded wait here would leave the bootstrap silently
+    # unfinished, and the only visible symptom would be the historyserver
+    # failing three minutes later for a reason that points somewhere else.
+    timeout 300 hdfs dfsadmin -safemode wait >/dev/null \
+      || die "NameNode did not leave safe mode within 5 minutes"
     hdfs dfs -mkdir -p /tmp /user/hadoop /mr-history/tmp /mr-history/done /app-logs
     hdfs dfs -chmod -R 1777 /tmp /mr-history
     hdfs dfs -chmod -R 1777 /app-logs
