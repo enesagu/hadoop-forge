@@ -1,0 +1,34 @@
+Hadoop assumes that failure is routine rather than exceptional.
+On a cluster of thousands of commodity machines a disk dies every day.
+Durability therefore comes from replication and not from expensive hardware.
+
+Move the computation to the data and not the data to the computation.
+Network bandwidth is the scarce resource in a distributed system.
+Shipping a few kilobytes of code beats shipping a petabyte of bytes.
+
+HDFS splits every file into blocks and replicates each block three times.
+The first replica lands on the writing node.
+The second replica lands in a different rack.
+The third replica lands beside the second in that same rack.
+This survives a node failure and a rack failure at the same time.
+
+The NameNode holds the namespace in memory and persists FsImage and EditLog.
+Block locations are never persisted and are rebuilt from block reports.
+Real data never flows through the NameNode which is why one master suffices.
+
+YARN separates resource management from the programming model.
+The ResourceManager allocates and the ApplicationMaster orchestrates.
+A container is a lease on memory and vcores on one node.
+MapReduce is merely the first tenant that YARN learned to host.
+
+Shuffle and sort is where MapReduce jobs go to die.
+Partition then spill then merge then copy then merge again.
+A combiner reduces locally before anything crosses the network.
+Snappy compression on map output trades cheap cpu for expensive io.
+
+Small files are the classic HDFS anti pattern.
+Every file and block costs the NameNode roughly one hundred fifty bytes of heap.
+Millions of tiny logs exhaust that heap long before they exhaust the disks.
+
+Write once and read many is the assumption behind every design choice.
+Fighting that assumption is the origin of most Hadoop pain in the field.
