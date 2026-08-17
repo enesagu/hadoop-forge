@@ -1,0 +1,193 @@
+# Multi-node HDFS + YARN cluster.
+#
+#   docker compose -f docker/docker-compose.yml up -d
+#   make up
+#
+# Three DataNodes so dfs.replication=3 is genuinely satisfiable — stop one and
+# watch the NameNode UI report under-replicated blocks, then re-replicate.
+#
+# Budget roughly 6 GB of Docker memory.
+
+name: hadoop-forge
+
+# --------------------------------------------------------------------------
+# Shared definitions
+# --------------------------------------------------------------------------
+x-hadoop-image: &hadoop-image
+  image: hadoop-forge:${HADOOP_VERSION:-3.3.6}
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+    args:
+      HADOOP_VERSION: ${HADOOP_VERSION:-3.3.6}
+
+x-hadoop-common: &hadoop-common
+  <<: *hadoop-image
+  networks: [forge]
+  restart: unless-stopped
+  environment: &hadoop-env
+    NAMENODE_HOST: namenode
+    RESOURCEMANAGER_HOST: resourcemanager
+    # Hadoop clients resolve the acting user from this in 'simple' auth mode.
+    HADOOP_USER_NAME: hadoop
+  # Java reads container limits correctly on modern JVMs, but only if the limit
+  # is actually set — otherwise every heap is sized against host RAM.
+  mem_limit: 1g
+
+x-worker: &worker
+  <<: *hadoop-common
+  depends_on:
+    namenode:
+      condition: service_healthy
+
+services:
+  # ------------------------------------------------------------------------
+  # HDFS
+  # ------------------------------------------------------------------------
+  namenode:
+    <<: *hadoop-common
+    container_name: forge-namenode
+    hostname: namenode
+    command: ["namenode"]
+    ports:
+      - "${NAMENODE_UI_PORT:-9870}:9870"   # web UI
+      - "${NAMENODE_RPC_PORT:-9000}:9000"  # client RPC, for host-side clients
+    volumes:
+      - namenode-data:/hadoop/data
+    mem_limit: 1500m
+    healthcheck:
+      # The UI answering is not enough — it serves during safe mode too. Ask the
+      # NameNode whether it will actually accept writes.
+      test: ["CMD-SHELL", "hdfs dfsadmin -safemode get | grep -q OFF"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 45s
+
+  datanode-1:
+    <<: *worker
+    container_name: forge-datanode-1
+    hostname: datanode-1
+    command: ["datanode"]
+    volumes:
+      - datanode-1-data:/hadoop/data
+    healthcheck: &datanode-health
+      test: ["CMD-SHELL", "curl -sf http://localhost:9864/ >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  datanode-2:
+    <<: *worker
+    container_name: forge-datanode-2
+    hostname: datanode-2
+    command: ["datanode"]
+    volumes:
+      - datanode-2-data:/hadoop/data
+    healthcheck: *datanode-health
+
+  datanode-3:
+    <<: *worker
+    container_name: forge-datanode-3
+    hostname: datanode-3
+    command: ["datanode"]
+    volumes:
+      - datanode-3-data:/hadoop/data
+    healthcheck: *datanode-health
+
+  # ------------------------------------------------------------------------
+  # YARN
+  # ------------------------------------------------------------------------
+  resourcemanager:
+    <<: *worker
+    container_name: forge-resourcemanager
+    hostname: resourcemanager
+    command: ["resourcemanager"]
+    ports:
+      - "${RM_UI_PORT:-8088}:8088"
+    mem_limit: 1500m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/ws/v1/cluster/info >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  nodemanager-1:
+    <<: *hadoop-common
+    container_name: forge-nodemanager-1
+    hostname: nodemanager-1
+    command: ["nodemanager"]
+    depends_on:
+      resourcemanager:
+        condition: service_healthy
+    volumes:
+      - nodemanager-1-data:/hadoop/data
+    # 2 GB of YARN capacity plus the NodeManager's own JVM.
+    mem_limit: 2500m
+    healthcheck: &nodemanager-health
+      test: ["CMD-SHELL", "curl -sf http://localhost:8042/ >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  nodemanager-2:
+    <<: *hadoop-common
+    container_name: forge-nodemanager-2
+    hostname: nodemanager-2
+    command: ["nodemanager"]
+    depends_on:
+      resourcemanager:
+        condition: service_healthy
+    volumes:
+      - nodemanager-2-data:/hadoop/data
+    mem_limit: 2500m
+    healthcheck: *nodemanager-health
+
+  historyserver:
+    <<: *worker
+    container_name: forge-historyserver
+    hostname: historyserver
+    command: ["historyserver"]
+    ports:
+      - "${JHS_UI_PORT:-19888}:19888"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:19888/ws/v1/history/info >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # ------------------------------------------------------------------------
+  # Client
+  # ------------------------------------------------------------------------
+  gateway:
+    <<: *hadoop-common
+    container_name: forge-gateway
+    hostname: gateway
+    command: ["gateway"]
+    depends_on:
+      namenode:
+        condition: service_healthy
+      resourcemanager:
+        condition: service_healthy
+    volumes:
+      # Sample data and the built example jar, read-only.
+      - ../examples:/examples:ro
+
+networks:
+  forge:
+    driver: bridge
+    name: hadoop-forge
+
+# Named volumes, so `docker compose down` keeps the namespace and only
+# `down -v` destroys it.
+volumes:
+  namenode-data:
+  datanode-1-data:
+  datanode-2-data:
+  datanode-3-data:
+  nodemanager-1-data:
+  nodemanager-2-data:

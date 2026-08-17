@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Containerised cluster hdfs-site.xml
+
+  Three DataNode containers, so replication 3 is genuinely satisfiable and you
+  can watch re-replication happen by stopping one of them.
+-->
+<configuration>
+
+  <property>
+    <name>dfs.replication</name>
+    <value>3</value>
+  </property>
+
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///hadoop/data/namenode</value>
+  </property>
+
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///hadoop/data/datanode</value>
+  </property>
+
+  <!-- 32 MB instead of 128 MB. Sample datasets are small; with the default block
+       size every file is one block and you never see multi-block behaviour,
+       split calculation or parallel map tasks. -->
+  <property>
+    <name>dfs.blocksize</name>
+    <value>33554432</value>
+  </property>
+
+  <property>
+    <name>dfs.permissions.enabled</name>
+    <value>false</value>
+  </property>
+
+  <!-- Bind on all interfaces. Without these the daemons bind to the container's
+       hostname only, and published ports on the host reach nothing. -->
+  <property>
+    <name>dfs.namenode.rpc-bind-host</name>
+    <value>0.0.0.0</value>
+  </property>
+  <property>
+    <name>dfs.namenode.servicerpc-bind-host</name>
+    <value>0.0.0.0</value>
+  </property>
+  <property>
+    <name>dfs.namenode.http-bind-host</name>
+    <value>0.0.0.0</value>
+  </property>
+
+  <!-- Register DataNodes by hostname, not IP. Container IPs change on every
+       recreate; the service name is stable, so the NameNode UI stays readable
+       and block locations survive a restart. -->
+  <property>
+    <name>dfs.datanode.use.datanode.hostname</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>dfs.client.use.datanode.hostname</name>
+    <value>true</value>
+  </property>
+
+  <!-- A laptop's Docker volume has far less headroom than a server disk. -->
+  <property>
+    <name>dfs.datanode.du.reserved</name>
+    <value>1073741824</value>
+  </property>
+
+  <!-- Leave safe mode as soon as 99% of blocks have a reported replica, and do
+       not sit in the extra 30 second grace period — a demo cluster restarting
+       should be usable in seconds. -->
+  <property>
+    <name>dfs.namenode.safemode.threshold-pct</name>
+    <value>0.99</value>
+  </property>
+  <property>
+    <name>dfs.namenode.safemode.extension</name>
+    <value>5000</value>
+  </property>
+
+</configuration>

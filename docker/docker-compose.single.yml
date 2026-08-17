@@ -1,0 +1,140 @@
+# Pseudo-distributed cluster: one of each daemon, each in its own container.
+#
+#   docker compose -f docker/docker-compose.single.yml up -d
+#   make single
+#
+# Same image and same configuration as the multi-node topology; replication is
+# dropped to 1 at startup because a single DataNode cannot hold three distinct
+# replicas, and asking it to would leave every block permanently
+# under-replicated.
+#
+# Budget roughly 3 GB of Docker memory.
+
+name: hadoop-forge-single
+
+x-hadoop-image: &hadoop-image
+  image: hadoop-forge:${HADOOP_VERSION:-3.3.6}
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+    args:
+      HADOOP_VERSION: ${HADOOP_VERSION:-3.3.6}
+
+x-hadoop-common: &hadoop-common
+  <<: *hadoop-image
+  networks: [forge-single]
+  restart: unless-stopped
+  environment: &hadoop-env
+    NAMENODE_HOST: namenode
+    RESOURCEMANAGER_HOST: resourcemanager
+    HADOOP_USER_NAME: hadoop
+    # Retuned at startup by the entrypoint rather than duplicating the XML.
+    HADOOP_CONF_OVERRIDES: |
+      hdfs-site.xml:dfs.replication=1
+  mem_limit: 1g
+
+services:
+  namenode:
+    <<: *hadoop-common
+    container_name: forge-single-namenode
+    hostname: namenode
+    command: ["namenode"]
+    ports:
+      - "${NAMENODE_UI_PORT:-9870}:9870"
+      - "${NAMENODE_RPC_PORT:-9000}:9000"
+    volumes:
+      - namenode-data:/hadoop/data
+    mem_limit: 1500m
+    healthcheck:
+      test: ["CMD-SHELL", "hdfs dfsadmin -safemode get | grep -q OFF"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 45s
+
+  datanode:
+    <<: *hadoop-common
+    container_name: forge-single-datanode
+    hostname: datanode
+    command: ["datanode"]
+    depends_on:
+      namenode:
+        condition: service_healthy
+    volumes:
+      - datanode-data:/hadoop/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9864/ >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  resourcemanager:
+    <<: *hadoop-common
+    container_name: forge-single-resourcemanager
+    hostname: resourcemanager
+    command: ["resourcemanager"]
+    depends_on:
+      namenode:
+        condition: service_healthy
+    ports:
+      - "${RM_UI_PORT:-8088}:8088"
+    mem_limit: 1500m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/ws/v1/cluster/info >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  nodemanager:
+    <<: *hadoop-common
+    container_name: forge-single-nodemanager
+    hostname: nodemanager
+    command: ["nodemanager"]
+    depends_on:
+      resourcemanager:
+        condition: service_healthy
+    volumes:
+      - nodemanager-data:/hadoop/data
+    mem_limit: 2500m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8042/ >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  historyserver:
+    <<: *hadoop-common
+    container_name: forge-single-historyserver
+    hostname: historyserver
+    command: ["historyserver"]
+    depends_on:
+      namenode:
+        condition: service_healthy
+    ports:
+      - "${JHS_UI_PORT:-19888}:19888"
+
+  gateway:
+    <<: *hadoop-common
+    container_name: forge-single-gateway
+    hostname: gateway
+    command: ["gateway"]
+    depends_on:
+      namenode:
+        condition: service_healthy
+      resourcemanager:
+        condition: service_healthy
+    volumes:
+      - ../examples:/examples:ro
+
+networks:
+  forge-single:
+    driver: bridge
+    name: hadoop-forge-single
+
+volumes:
+  namenode-data:
+  datanode-data:
+  nodemanager-data:

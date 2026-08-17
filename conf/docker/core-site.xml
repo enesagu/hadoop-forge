@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Containerised cluster core-site.xml
+
+  Hostnames are Compose service names, resolved by Docker's embedded DNS on the
+  user-defined bridge network. This is why the services must not be renamed
+  without editing these files.
+-->
+<configuration>
+
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://namenode:9000</value>
+  </property>
+
+  <!-- Backed by a named volume so a `docker compose down` does not destroy the
+       namespace. Only `down -v` does. -->
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/hadoop/data/tmp</value>
+  </property>
+
+  <property>
+    <name>io.file.buffer.size</name>
+    <value>65536</value>
+  </property>
+
+  <!-- LEARNING MODE — anyone can claim any identity via HADOOP_USER_NAME. -->
+  <property>
+    <name>hadoop.security.authentication</name>
+    <value>simple</value>
+  </property>
+
+  <!-- Containers are disposable; trash would just consume volume space. -->
+  <property>
+    <name>fs.trash.interval</name>
+    <value>0</value>
+  </property>
+
+  <!-- Allow the host user to impersonate others through the gateway container,
+       so `docker compose exec` works regardless of which UID you land as. -->
+  <property>
+    <name>hadoop.proxyuser.hadoop.hosts</name>
+    <value>*</value>
+  </property>
+  <property>
+    <name>hadoop.proxyuser.hadoop.groups</name>
+    <value>*</value>
+  </property>
+
+</configuration>
