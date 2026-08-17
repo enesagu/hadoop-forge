@@ -20,3 +20,10 @@ updates:
     directory: /docker
     schedule:
       interval: monthly
+    ignore:
+      # Hadoop 3.3.6 supports JDK 8 and 11 only. A major bump of the base image
+      # to a newer JDK does not "update a dependency" — it produces a cluster
+      # that will not start, so those bumps are decided by hand alongside a
+      # Hadoop upgrade.
+      - dependency-name: eclipse-temurin
+        update-types: ["version-update:semver-major"]

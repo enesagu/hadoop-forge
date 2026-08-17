@@ -91,13 +91,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check relative links
-        uses: lycheeverse/lychee-action@v2
-        with:
-          # --offline: only relative links. External URLs go stale for reasons
-          # that have nothing to do with this repository, and a link checker
-          # that fails on someone else's outage gets ignored.
-          args: --offline --no-progress --verbose './**/*.md'
-          fail: true
+        # A local script rather than a third-party action: the previous one was
+        # rate-limited out of downloading (HTTP 429) and failed the build over
+        # infrastructure that has nothing to do with this repository. Relative
+        # links only — external URLs go stale for reasons we do not control.
+        run: bash tests/check-links.sh
 
   # ------------------------------------------------------------------------
   # The example jar, with its unit tests.

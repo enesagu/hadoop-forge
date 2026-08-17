@@ -144,7 +144,7 @@ monitoring-down: ## Stop the monitoring stack
 # Quality gates — the same checks CI runs
 # ---------------------------------------------------------------------------
 .PHONY: lint
-lint: lint-shell lint-docker lint-xml ## Run every linter
+lint: lint-shell lint-docker lint-xml lint-links ## Run every linter
 
 .PHONY: lint-shell
 lint-shell: ## shellcheck every shell script
@@ -159,6 +159,10 @@ lint-docker: ## hadolint the Dockerfile
 .PHONY: lint-xml
 lint-xml: ## Validate configuration XML
 	bash tests/validate-configs.sh
+
+.PHONY: lint-links
+lint-links: ## Check that relative links in the Markdown resolve
+	bash tests/check-links.sh
 
 .PHONY: lint-compose
 lint-compose: ## Validate the Compose files

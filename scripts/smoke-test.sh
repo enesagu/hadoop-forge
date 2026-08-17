@@ -117,7 +117,7 @@ EXAMPLES_JAR="${HADOOP_HOME}/share/hadoop/mapreduce/hadoop-mapreduce-examples-${
 
 if yarn jar "${EXAMPLES_JAR}" wordcount "${WORKDIR}/in" "${WORKDIR}/out" \
      > "${LOCAL_TMP}/job.log" 2>&1; then
-  APP_ID="$(grep -oP 'application_[0-9_]+' "${LOCAL_TMP}/job.log" | head -n1 || true)"
+  APP_ID="$(sed -n 's/.*\(application_[0-9]\{1,\}_[0-9]\{1,\}\).*/\1/p' "${LOCAL_TMP}/job.log" | head -n1)"
   pass "Job succeeded${APP_ID:+ (${APP_ID})}"
 else
   printf '\n--- last 40 lines of job output ---\n'

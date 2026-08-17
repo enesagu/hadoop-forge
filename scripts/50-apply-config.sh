@@ -76,7 +76,9 @@ fi
 heading "Checking for duplicate properties"
 for f in "${DST}"/*-site.xml; do
   [[ -f "$f" ]] || continue
-  dupes="$(grep -oP '(?<=<name>)[^<]+' "$f" | sort | uniq -d || true)"
+  # sed, not grep -oP: PCRE is a GNU extension and refuses to run under some
+  # locales, which is a poor reason for an installer to fail on a fresh host.
+  dupes="$(sed -n 's/.*<name>\([^<]*\)<\/name>.*/\1/p' "$f" | sort | uniq -d)"
   if [[ -n "${dupes}" ]]; then
     err "Duplicate properties in $(basename "$f"):"
     printf '  %s\n' "${dupes}" >&2
