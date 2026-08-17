@@ -179,10 +179,15 @@ start_nodemanager() {
 start_historyserver() {
   wait_for_port "${NAMENODE_HOST:-namenode}" 9000
   # The NameNode creates /mr-history; give that bootstrap a moment to land
-  # rather than crash-looping on a missing directory.
+  # rather than crash-looping on a missing directory. Bounded: an unbounded loop
+  # here would leave the container running and apparently fine while never
+  # serving anything.
+  local waited=0
   until hdfs dfs -test -d /mr-history/done 2>/dev/null; do
-    log "Waiting for /mr-history/done in HDFS"
     sleep 3
+    waited=$((waited + 3))
+    (( waited >= 180 )) && die "/mr-history/done never appeared in HDFS — check the NameNode bootstrap"
+    log "Waiting for /mr-history/done in HDFS (${waited}s)"
   done
   exec mapred historyserver
 }

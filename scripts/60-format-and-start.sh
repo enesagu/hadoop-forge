@@ -58,8 +58,14 @@ mapred --daemon start historyserver || warn "JobHistory server did not start"
 heading "Waiting for HDFS to leave safe mode"
 # On startup the NameNode holds writes until enough block reports have arrived.
 # Racing it produces confusing "cannot create file" errors in the smoke test.
-if hdfs dfsadmin -safemode wait; then
+#
+# Bounded, because `-safemode wait` waits forever. If the DataNodes never
+# register, an unbounded wait turns a diagnosable failure into a hung terminal.
+if timeout 300 hdfs dfsadmin -safemode wait; then
   ok "HDFS is accepting writes"
+else
+  warn "Still in safe mode after 5 minutes — the DataNodes are not registering"
+  log "Check the DataNode log, not the NameNode's: \$HADOOP_LOG_DIR/*datanode*.log"
 fi
 
 heading "Running processes"

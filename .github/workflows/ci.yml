@@ -196,10 +196,14 @@ jobs:
       - name: Health check
         run: docker compose -f ${{ matrix.file }} exec -T gateway bash -s < scripts/health-check.sh
 
+      # Per-step timeouts so a blocking HDFS command fails in minutes instead of
+      # burning the whole job budget with no output.
       - name: Smoke test — HDFS round trip and a real MapReduce job
+        timeout-minutes: 12
         run: docker compose -f ${{ matrix.file }} exec -T gateway bash -s < scripts/smoke-test.sh
 
       - name: HDFS command tour
+        timeout-minutes: 5
         run: docker compose -f ${{ matrix.file }} exec -T gateway bash /examples/hdfs-basics.sh
 
       - name: Dump logs on failure

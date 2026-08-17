@@ -55,8 +55,18 @@ run "hdfs fsck ${PLAY}/ingest/note.txt -files -blocks -locations"
 step "Per-file replication"
 # Replication is a per-file property, not a cluster-wide constant. Raising it on
 # a hot file spreads read load; lowering it on cold data saves real money.
-run "hdfs dfs -setrep -w 2 ${PLAY}/ingest/note.txt"
+#
+# Note the absence of -w. `-setrep -w` blocks until the requested replication is
+# actually satisfied, and asking for more replicas than there are live DataNodes
+# can never be satisfied — the command waits forever with no error and no
+# progress. On a single-node cluster, `-setrep -w 2` is an indefinite hang.
+# Without -w the NameNode records the new target and replicates when it can.
+run "hdfs dfs -setrep 2 ${PLAY}/ingest/note.txt"
 run "hdfs dfs -stat '%r replicas, %b bytes, block %o' ${PLAY}/ingest/note.txt"
+# The target is recorded immediately; whether it is met depends on how many
+# DataNodes exist. One node means permanently under-replicated, which is correct
+# behaviour rather than a fault.
+run "hdfs dfs -setrep 1 ${PLAY}/ingest/note.txt"
 
 step "Deleting, and the safety net"
 # -rm moves to .Trash when fs.trash.interval > 0. -skipTrash bypasses it and is

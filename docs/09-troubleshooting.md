@@ -150,6 +150,19 @@ Causes:
   and the client connects itself; a firewall on port 9866, or a client outside a
   Docker network, produces exactly this error while `-ls` works fine.
 
+### `hdfs dfs -setrep -w` never returns
+
+`-w` waits until the requested replication is actually satisfied. Ask for more
+replicas than there are live DataNodes and it can never be satisfied, so the
+command blocks indefinitely — no error, no progress, no timeout. On a single-node
+cluster `-setrep -w 2` hangs forever.
+
+Drop `-w`: the NameNode records the new target immediately and replicates when it
+can. Check the result with `hdfs dfs -stat %r <path>`.
+
+The same trap applies to `hdfs dfsadmin -safemode wait`, which waits forever if
+the DataNodes never register. Wrap it: `timeout 300 hdfs dfsadmin -safemode wait`.
+
 ### Under-replicated blocks that never recover
 
 ```bash
