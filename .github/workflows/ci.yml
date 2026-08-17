@@ -118,7 +118,7 @@ jobs:
         working-directory: examples/wordcount
         run: mvn -B --no-transfer-progress verify
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: success()
         with:
           name: wordcount-jar
