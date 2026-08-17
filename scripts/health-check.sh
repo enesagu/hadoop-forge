@@ -100,10 +100,14 @@ if [[ -n "${REPORT}" ]]; then
     esac
   fi
 
-  LIVE="$(awk -F': ' '/^Live datanodes/ {gsub(/[^0-9]/,"",$1$2); print $0; exit}' <<<"${REPORT}" \
-          | grep -oP '\(\K[0-9]+' || echo 0)"
-  DEAD="$(awk -F': ' '/^Dead datanodes/ {print $0; exit}' <<<"${REPORT}" \
-          | grep -oP '\(\K[0-9]+' || echo 0)"
+  # dfsadmin prints "Live datanodes (3):" — pull the count out of the
+  # parentheses. sed rather than grep -oP: PCRE is a GNU extension and refuses
+  # to run under some locales, and the runner's awk is mawk, which rejects
+  # gsub() on a non-assignable expression.
+  LIVE="$(sed -n 's/^Live datanodes[^(]*(\([0-9]\{1,\}\)).*/\1/p' <<<"${REPORT}" | head -n1)"
+  DEAD="$(sed -n 's/^Dead datanodes[^(]*(\([0-9]\{1,\}\)).*/\1/p' <<<"${REPORT}" | head -n1)"
+  LIVE="${LIVE:-0}"
+  DEAD="${DEAD:-0}"
   if (( LIVE > 0 )); then
     pass "${LIVE} live DataNode(s)"
   else
@@ -137,7 +141,7 @@ if [[ -n "${FSCK}" ]]; then
   fi
 
   for metric in "Under-replicated blocks" "Missing blocks" "Corrupt blocks"; do
-    value="$(grep -oP "${metric}:\s*\K[0-9]+" <<<"${FSCK}" | head -n1 || true)"
+    value="$(sed -n "s/^[[:space:]]*${metric}:[[:space:]]*\([0-9]\{1,\}\).*/\1/p" <<<"${FSCK}" | head -n1)"
     [[ -z "${value}" ]] && continue
     if (( value == 0 )); then
       pass "${metric}: 0"

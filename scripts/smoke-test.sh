@@ -81,7 +81,8 @@ fi
 step "4/6 Replication is satisfied"
 WANT_REP="$(hdfs getconf -confKey dfs.replication 2>/dev/null || echo 1)"
 FSCK="$(hdfs fsck "${WORKDIR}/payload.bin" -files -blocks 2>/dev/null || true)"
-GOT_REP="$(grep -oP 'Average block replication:\s*\K[0-9.]+' <<<"${FSCK}" | head -n1 || echo 0)"
+GOT_REP="$(sed -n 's/^[[:space:]]*Average block replication:[[:space:]]*\([0-9.]\{1,\}\).*/\1/p' <<<"${FSCK}" | head -n1)"
+GOT_REP="${GOT_REP:-0}"
 if awk -v w="${WANT_REP}" -v g="${GOT_REP}" 'BEGIN {exit !(g+0 >= w+0)}'; then
   pass "Average block replication ${GOT_REP} meets dfs.replication=${WANT_REP}"
 else
