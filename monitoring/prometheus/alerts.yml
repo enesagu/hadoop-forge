@@ -1,0 +1,222 @@
+# Alert rules for a Hadoop cluster.
+#
+# ---------------------------------------------------------------------------
+# IMPORTANT — verify the metric names against YOUR cluster before trusting the
+# expression-based rules below.
+#
+# Hadoop's PrometheusMetricsSink derives metric names from JMX record and
+# attribute names by splitting camel case, so they vary slightly between
+# versions. The names here follow Hadoop 3.3.6. Confirm with:
+#
+#   docker compose exec namenode curl -s localhost:9870/prom | grep -i missing
+#   docker compose exec resourcemanager curl -s localhost:8088/prom | grep -i unhealthy
+#
+# The `up`-based rules need no such check: `up` is synthesised by Prometheus and
+# is always correct. Those are the rules that matter most anyway — a daemon that
+# is gone is a bigger problem than any gauge.
+# ---------------------------------------------------------------------------
+
+groups:
+  # ------------------------------------------------------------------------
+  - name: availability
+    rules:
+      - alert: NameNodeDown
+        expr: up{job="namenode"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NameNode is unreachable"
+          description: >-
+            Without the namespace, every block on every DataNode is unreachable
+            data. This is a full cluster outage, not a degradation.
+
+      - alert: ResourceManagerDown
+        expr: up{job="resourcemanager"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ResourceManager is unreachable"
+          description: >-
+            HDFS may be fine, but nothing can be scheduled. No new job will
+            start until this recovers.
+
+      - alert: DataNodeDown
+        expr: up{job="datanode"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DataNode {{ $labels.instance }} is unreachable"
+          description: >-
+            The NameNode declares a node dead after roughly 10.5 minutes of
+            missed heartbeats and then re-replicates its blocks, which is
+            expensive. Expect elevated disk and network load.
+
+      - alert: MultipleDataNodesDown
+        expr: count(up{job="datanode"} == 0) >= 2
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $value }} DataNodes are unreachable"
+          description: >-
+            With replication 3, losing three nodes in the wrong placement can
+            mean permanent data loss. Investigate before the next one goes.
+
+      - alert: NodeManagerDown
+        expr: up{job="nodemanager"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NodeManager {{ $labels.instance }} is unreachable"
+
+  # ------------------------------------------------------------------------
+  - name: hdfs-data-integrity
+    rules:
+      # The only alert on this page that means data is already gone.
+      - alert: MissingBlocks
+        expr: fs_namesystem_missing_blocks > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $value }} block(s) have no live replica"
+          description: >-
+            This is data loss, not a warning. Identify the files with
+            `hdfs fsck / -list-corruptfileblocks` and restore from backup.
+            HDFS cannot recover blocks whose every replica is gone.
+
+      - alert: UnderReplicatedBlocksPersisting
+        expr: fs_namesystem_under_replicated_blocks > 0
+        # Long window on purpose: under-replication is normal and transient
+        # after a node loss or a setrep. Only a persistent count is a problem.
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} block(s) under-replicated for 30 minutes"
+          description: >-
+            Re-replication has not caught up. Usually means fewer live
+            DataNodes than dfs.replication requires, or a throttled
+            dfs.namenode.replication.max-streams.
+
+      - alert: CorruptBlocks
+        expr: fs_namesystem_corrupt_blocks > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $value }} corrupt block(s)"
+
+      - alert: DeadDataNodesReported
+        expr: fs_namesystem_state_num_dead_data_nodes > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NameNode reports {{ $value }} dead DataNode(s)"
+
+  # ------------------------------------------------------------------------
+  - name: capacity
+    rules:
+      - alert: HdfsCapacityHigh
+        expr: >-
+          100 * fs_namesystem_capacity_used
+          / clamp_min(fs_namesystem_capacity_total, 1) > 80
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HDFS is {{ $value | printf \"%.1f\" }}% full"
+          description: >-
+            Plan capacity now rather than at 95%. Adding DataNodes is fast;
+            rebalancing across them is not.
+
+      - alert: HdfsCapacityCritical
+        expr: >-
+          100 * fs_namesystem_capacity_used
+          / clamp_min(fs_namesystem_capacity_total, 1) > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HDFS is {{ $value | printf \"%.1f\" }}% full"
+          description: >-
+            Writes will begin failing with "could only be replicated to 0
+            nodes". dfs.datanode.du.reserved protects the operating system,
+            not the cluster.
+
+  # ------------------------------------------------------------------------
+  - name: jvm
+    rules:
+      # The NameNode's heap holds the whole namespace, so it grows with object
+      # count and cannot be raised without a restart — which on a large cluster
+      # is a planned event. Alert early enough to plan one.
+      - alert: NameNodeHeapHigh
+        expr: >-
+          100 * jvm_metrics_mem_heap_used_m{job="namenode"}
+          / clamp_min(jvm_metrics_mem_heap_max_m{job="namenode"}, 1) > 85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NameNode heap at {{ $value | printf \"%.0f\" }}%"
+          description: >-
+            Budget ~150 bytes per block, file and directory. Sustained high
+            usage usually means the object count is growing — check for a small
+            file problem before simply raising the heap.
+
+      - alert: LongGcPauses
+        expr: rate(jvm_metrics_gc_time_millis[5m]) > 200
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} on {{ $labels.instance }} is spending heavy time in GC"
+          description: >-
+            A long NameNode GC pause is indistinguishable from an outage to
+            clients, and in an HA cluster it can trip a needless failover when
+            the ZKFC loses its ZooKeeper session.
+
+  # ------------------------------------------------------------------------
+  - name: yarn
+    rules:
+      - alert: UnhealthyNodeManagers
+        expr: cluster_metrics_num_unhealthy_nms > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} NodeManager(s) reporting UNHEALTHY"
+          description: >-
+            Almost always disk utilisation past
+            yarn.nodemanager.disk-health-checker.max-disk-utilization-per-disk-percentage.
+            The node stops receiving containers, quietly shrinking cluster
+            capacity.
+
+      - alert: ApplicationsStuckPending
+        expr: queue_metrics_apps_pending > 0
+        for: 20m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} application(s) pending for 20 minutes"
+          description: >-
+            The scheduler cannot satisfy the container request. Compare
+            mapreduce.map.memory.mb against
+            yarn.nodemanager.resource.memory-mb, and check the queue's
+            maximum-am-resource-percent — enough concurrent submissions can
+            deadlock a cluster with ApplicationMasters waiting on containers
+            that can never be granted.
+
+      - alert: NoActiveNodeManagers
+        expr: absent(up{job="nodemanager"} == 1)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No NodeManager is reachable"
+          description: "Nothing can be scheduled anywhere in the cluster."

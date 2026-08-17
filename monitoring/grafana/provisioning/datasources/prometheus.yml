@@ -1,0 +1,19 @@
+apiVersion: 1
+
+# Provisioned at startup so the stack is usable with no clicking.
+datasources:
+  - name: Prometheus
+    # Pinned uid: the dashboard JSON references it, and an auto-generated one
+    # would leave every panel pointing at a datasource that does not exist.
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    # Service name on the cluster's Docker network, not localhost — Grafana
+    # queries from inside its own container.
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      # Match prometheus.yml's scrape_interval so Grafana does not request a
+      # finer resolution than the data actually has.
+      timeInterval: 15s

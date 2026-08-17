@@ -1,0 +1,74 @@
+# Prometheus configuration for the containerised cluster.
+#
+# Hadoop 3.1+ exposes a native Prometheus endpoint at /prom on every daemon's
+# HTTP server (PrometheusMetricsSink). No jmx_exporter sidecar is needed — which
+# is why this stack is three containers rather than ten.
+#
+# For Hadoop 2.x, or if you disabled the endpoint, run jmx_exporter in
+# httpserver mode against the JMX ports that conf/cluster/hadoop-env.sh opens
+# (9010 NameNode, 9011 DataNode, 9012 ResourceManager) and point these jobs at
+# the exporters instead.
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+  external_labels:
+    cluster: hadoop-forge
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  # ------------------------------------------------------------------------
+  # HDFS
+  # ------------------------------------------------------------------------
+  - job_name: namenode
+    metrics_path: /prom
+    static_configs:
+      - targets: ["namenode:9870"]
+        labels:
+          role: namenode
+
+  - job_name: datanode
+    metrics_path: /prom
+    static_configs:
+      - targets:
+          - "datanode-1:9864"
+          - "datanode-2:9864"
+          - "datanode-3:9864"
+        labels:
+          role: datanode
+
+  # ------------------------------------------------------------------------
+  # YARN
+  # ------------------------------------------------------------------------
+  - job_name: resourcemanager
+    metrics_path: /prom
+    static_configs:
+      - targets: ["resourcemanager:8088"]
+        labels:
+          role: resourcemanager
+
+  - job_name: nodemanager
+    metrics_path: /prom
+    static_configs:
+      - targets:
+          - "nodemanager-1:8042"
+          - "nodemanager-2:8042"
+        labels:
+          role: nodemanager
+
+  - job_name: historyserver
+    metrics_path: /prom
+    static_configs:
+      - targets: ["historyserver:19888"]
+        labels:
+          role: historyserver
+
+  # ------------------------------------------------------------------------
+  # Prometheus itself, so you can tell a missing metric from a dead scraper
+  # ------------------------------------------------------------------------
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

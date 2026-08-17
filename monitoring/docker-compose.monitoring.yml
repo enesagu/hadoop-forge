@@ -1,0 +1,66 @@
+# Observability overlay for the multi-node cluster.
+#
+#   make monitoring-up
+#   docker compose -f docker/docker-compose.yml -f monitoring/docker-compose.monitoring.yml up -d
+#
+# An overlay, not a standalone stack: it joins the cluster's network so
+# Prometheus can reach each daemon by service name.
+
+name: hadoop-forge
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: forge-prometheus
+    hostname: prometheus
+    networks: [forge]
+    restart: unless-stopped
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Enough history to see a trend without filling a laptop disk.
+      - --storage.tsdb.retention.time=15d
+      # Lets you reload rule changes without a restart:
+      #   curl -X POST http://localhost:9090/-/reload
+      - --web.enable-lifecycle
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: forge-grafana
+    hostname: grafana
+    networks: [forge]
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      # Local-only stack. Do not copy these to anything reachable.
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      # Skip the login screen entirely: this is a dashboard on a laptop.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+volumes:
+  prometheus-data:
+  grafana-data:
