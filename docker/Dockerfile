@@ -51,13 +51,15 @@ LABEL org.opencontainers.image.title="hadoop-forge" \
       org.opencontainers.image.licenses="MIT"
 
 # curl      — container healthchecks hit the daemon web UIs
-# python3   — applies HADOOP_CONF_OVERRIDES to the XML at startup
 # libsnappy — native codec for shuffle compression
 # procps    — ps/jps for triage inside a running container
 # gosu      — clean privilege drop to the service account
+#
+# Deliberately no interpreter: the entrypoint's configuration templating is awk,
+# so nothing here can fail to import at container startup.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      curl python3-minimal libsnappy1v5 procps gosu net-tools less \
+      curl libsnappy1v5 procps gosu net-tools less \
  && rm -rf /var/lib/apt/lists/*
 
 ENV HADOOP_VERSION=${HADOOP_VERSION} \

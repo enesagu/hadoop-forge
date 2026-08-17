@@ -26,44 +26,81 @@ die()  { printf '[entrypoint] FATAL: %s\n' "$*" >&2; exit 1; }
 #   HADOOP_CONF_OVERRIDES: |
 #     hdfs-site.xml:dfs.replication=1
 #     yarn-site.xml:yarn.nodemanager.resource.memory-mb=4096
+#
+# Implemented in awk rather than with an XML parser on purpose. The runtime image
+# carries no interpreter beyond the shell's own toolchain, and adding one so that
+# a container can edit four lines of XML is a dependency that fails at startup —
+# the worst possible place. Hadoop's configuration format is regular enough that
+# substring matching is sufficient.
+#
+# Limitation: single-line <name>/<value> pairs only, which is what every file in
+# conf/docker uses.
 # --------------------------------------------------------------------------
+
+# Set one property in one file, replacing the existing value or appending a new
+# <property> block before </configuration>.
+set_property() {
+  local file="$1" key="$2" value="$3"
+
+  [[ -f "$file" ]] || die "no such configuration file: ${file}"
+
+  awk -v key="$key" -v value="$value" '
+    { line[++n] = $0 }
+    END {
+      target = 0
+      for (i = 1; i <= n; i++) {
+        # index() not a regex: a key such as dfs.replication would otherwise
+        # have its dots match any character.
+        if (index(line[i], "<name>" key "</name>") > 0) { target = i; break }
+      }
+
+      if (target > 0) {
+        for (i = target + 1; i <= n; i++) {
+          p = index(line[i], "<value>")
+          q = index(line[i], "</value>")
+          if (p > 0 && q > p) {
+            # Rebuilt by position rather than with sub(), whose replacement
+            # text treats & as "the whole match".
+            line[i] = substr(line[i], 1, p + 6) value substr(line[i], q)
+            break
+          }
+        }
+        for (i = 1; i <= n; i++) print line[i]
+      } else {
+        for (i = 1; i <= n; i++) {
+          if (index(line[i], "</configuration>") > 0) {
+            print "  <property>"
+            print "    <name>" key "</name>"
+            print "    <value>" value "</value>"
+            print "  </property>"
+          }
+          print line[i]
+        }
+      }
+    }
+  ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+}
+
 apply_conf_overrides() {
   [[ -n "${HADOOP_CONF_OVERRIDES:-}" ]] || return 0
   log "Applying configuration overrides"
-  HADOOP_CONF_OVERRIDES="${HADOOP_CONF_OVERRIDES}" \
-  HADOOP_CONF_DIR="${HADOOP_CONF_DIR}" python3 - <<'PY'
-import os, re, sys
-import xml.etree.ElementTree as ET
 
-conf_dir = os.environ["HADOOP_CONF_DIR"]
-changes = {}
-for raw in os.environ["HADOOP_CONF_OVERRIDES"].splitlines():
-    line = raw.strip()
-    if not line or line.startswith("#"):
-        continue
-    if ":" not in line or "=" not in line:
-        sys.exit(f"malformed override (expected file.xml:key=value): {line!r}")
-    filename, kv = line.split(":", 1)
-    key, value = kv.split("=", 1)
-    changes.setdefault(filename.strip(), []).append((key.strip(), value.strip()))
+  local raw filename kv key value
+  while IFS= read -r raw; do
+    # Trim, then skip blanks and comments.
+    raw="${raw#"${raw%%[![:space:]]*}"}"
+    raw="${raw%"${raw##*[![:space:]]}"}"
+    [[ -z "$raw" || "$raw" == \#* ]] && continue
 
-for filename, pairs in changes.items():
-    path = os.path.join(conf_dir, filename)
-    tree = ET.parse(path)
-    root = tree.getroot()
-    for key, value in pairs:
-        for prop in root.findall("property"):
-            name = prop.find("name")
-            if name is not None and name.text == key:
-                prop.find("value").text = value
-                break
-        else:
-            prop = ET.SubElement(root, "property")
-            ET.SubElement(prop, "name").text = key
-            ET.SubElement(prop, "value").text = value
-        print(f"[entrypoint]   {filename}: {key} = {value}")
-    tree.write(path, encoding="utf-8", xml_declaration=True)
-PY
+    [[ "$raw" == *:*=* ]] || die "malformed override (expected file.xml:key=value): ${raw}"
+    filename="${raw%%:*}"
+    kv="${raw#*:}"
+    key="${kv%%=*}"
+    value="${kv#*=}"
+
+    set_property "${HADOOP_CONF_DIR}/${filename}" "$key" "$value"
+    log "  ${filename}: ${key} = ${value}"
+  done <<< "${HADOOP_CONF_OVERRIDES}"
 }
 
 # --------------------------------------------------------------------------

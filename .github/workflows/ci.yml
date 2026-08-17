@@ -161,7 +161,19 @@ jobs:
           load: true
 
       - name: Start the cluster
-        run: docker compose -f ${{ matrix.file }} up -d
+        # `up -d` blocks on depends_on: service_healthy and then reports only
+        # "container is unhealthy", which says nothing about why. Dump the
+        # daemon's own output at the point of failure instead of leaving the
+        # cause several steps further down the log.
+        run: |
+          if ! docker compose -f ${{ matrix.file }} up -d; then
+            for svc in namenode datanode resourcemanager; do
+              echo "::group::$svc logs"
+              docker compose -f ${{ matrix.file }} logs --no-color "$svc" || true
+              echo "::endgroup::"
+            done
+            exit 1
+          fi
 
       - name: Wait for health
         run: |
